@@ -59,9 +59,48 @@ def get_pr_context(url: str) -> dict:
         'status': pr.state
     }
 
-def handle_token_limit(text, max_tokens=4000):
+def handle_token_limit(text, max_tokens=400000):
     """Trim the text to fit within the token limit."""
     return text[:max_tokens]
+
+def determine_pr_type(title, description):
+    """Classify PR type based on title and description."""
+    keywords = {
+        "bug": ["fix", "bug", "error", "issue", "patch"],
+        "feature": ["add", "feature", "implement", "new"],
+        "refactor": ["refactor", "cleanup", "restructure"],
+        "security": ["security", "vulnerability", "CVE", "exploit"]
+    }
+    
+    title_lower = title.lower()
+    desc_lower = description.lower()
+    
+    for pr_type, words in keywords.items():
+        if any(word in title_lower or word in desc_lower for word in words):
+            return pr_type
+    
+    return "general"
+
+def generate_custom_prompt(pr_type, pr_context, files_content):
+    """Generate a prompt tailored to the PR type."""
+    base_prompt = f"""You are PR-Reviewer, a language model designed to review a Git Pull Request (PR).
+    Summarize the following PR changes concisely:
+    Title: {pr_context['title']}
+    Description: {pr_context['description']}
+    Changed Files and Contents:
+    {files_content}
+    If applicable, your summary should include a note about alterations to the signatures of exported functions, global data structures and variables, and any changes that might affect the external interface or behavior of the code.
+    """
+
+    prompts = {
+        "bug": f"{base_prompt}\nExplain the root cause of this bug and assess the effectiveness of the fix.",
+        "feature": f"{base_prompt}\nEvaluate the impact of this feature on existing functionality and suggest improvements.",
+        "refactor": f"{base_prompt}\nAnalyze whether this refactoring improves maintainability and performance.",
+        "security": f"{base_prompt}\nAssess whether this patch effectively mitigates the security issue.",
+        "general": f"{base_prompt}"
+    }
+    
+    return prompts.get(pr_type, prompts["general"])
 
 def generate_pr_summary(url):
     """Generates a PR summary using Ollama's CodeLlama model."""
@@ -73,15 +112,24 @@ def generate_pr_summary(url):
         f"File: {f.filename}\nChanges: +{f.additions}/-{f.deletions}\n"
         for f in pr_context['changed_files']
     ])
+
+    print(files_content)
     
-    prompt = f"""Summarize the following PR changes concisely:
+    prompt = f"""You are PR-Reviewer, a language model designed to review a Git Pull Request (PR).
+    Summarize the following PR changes concisely:
     Title: {pr_context['title']}
     Description: {pr_context['description']}
-    Changed Files:
+    Changed Files and Contents:
     {files_content}
-    Provide a clear and concise summary of the changes.
+    Provide a clear and concise summary of the content changes.
+    If applicable, your summary should include a note about alterations to the signatures of exported functions, global data structures and variables, and any changes that might affect the external interface or behavior of the code.
     """
     prompt = handle_token_limit(prompt)
+
+    pr_type = determine_pr_type(pr_context["title"], pr_context["description"])
+    prompt = generate_custom_prompt(pr_type, pr_context, files_content)
+    prompt = handle_token_limit(prompt)
+    
     
     payload = {"model": MODEL_NAME, "prompt": prompt, "stream": False}
     response = requests.post(OLLAMA_API_URL, json=payload)
