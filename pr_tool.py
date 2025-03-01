@@ -215,31 +215,53 @@ def download_files(temp_dir, repo, files, branch):
     
     return downloaded_files
 
+def post_comment_on_pr(pr_url, comment):
+    """Posts a comment on the PR with analysis results."""
+    gh = Github(os.getenv('GITHUB_TOKEN'))
+    owner, repo, pr_number = re.search(r"github\.com/([^/]+)/([^/]+)/pull/(\d+)", pr_url).groups()
+
+    repo = gh.get_repo(f"{owner}/{repo}")
+    pr = repo.get_pull(int(pr_number))
+    pr.create_issue_comment(comment)
+    console.print(f"[green]Posted analysis comment on PR #{pr_number}")
+
 def main():
     """Interactive CLI to analyze PRs."""
     console.print("[bold magenta]AI PR Review Tool[/bold magenta]\n")
 
-    while True:
-        console.print("\n1. Input PR URL")
-        console.print("2. Generate PR Summary")
-        console.print("3. Analyze Change Impact")
-        console.print("4. Run Static Analysis")
-        console.print("5. Exit")
-        choice = input("Enter choice: ").strip()
+    # while True:
+    #     console.print("\n1. Input PR URL")
+    #     console.print("2. Generate PR Summary")
+    #     console.print("3. Analyze Change Impact")
+    #     console.print("4. Run Static Analysis")
+    #     console.print("5. Exit")
+    #     choice = input("Enter choice: ").strip()
 
-        if choice == "1":
-            pr_url = input("Enter GitHub PR URL: ").strip()
-            # run_lint(pr_url)
-        elif choice == "2":
-            generate_pr_summary(pr_url)
-            # console.print(f"\n[green]PR Summary:\n{PR_SUMMARY}")
-        elif choice == "3":
-            analyze_change_impact(pr_url)
-        elif choice == "5":
-            console.print("[green]Exiting...")
-            break
-        else:
-            console.print("[yellow]Invalid choice. Try again.")
+    #     if choice == "1":
+    #         pr_url = input("Enter GitHub PR URL: ").strip()
+    #         # run_lint(pr_url)
+    #     elif choice == "2":
+    #         generate_pr_summary(pr_url)
+    #         # console.print(f"\n[green]PR Summary:\n{PR_SUMMARY}")
+    #     elif choice == "3":
+    #         analyze_change_impact(pr_url)
+    #     elif choice == "5":
+    #         console.print("[green]Exiting...")
+    #         break
+    #     else:
+    #         console.print("[yellow]Invalid choice. Try again.")
+
+
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 1 and sys.argv[1] == "--pr-url":
+        pr_url = sys.argv[2]
+        console.print(f"[cyan]Running PR analysis for {pr_url}...\n")
+
+        generate_pr_summary(pr_url)
+        analyze_change_impact(pr_url)
+
+        pr_comment = f"## AI PR Review Summary\n\n**Summary:**\n{PR_SUMMARY}\n\n**Semgrep Findings:**\n{json.dumps(SEMGREP_FINDINGS, indent=2)}"
+        post_comment_on_pr(pr_url, pr_comment)
+    else:
+        console.print("[red]Missing PR URL. Run the script with `--pr-url <PR_URL>`")
