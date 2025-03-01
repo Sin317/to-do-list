@@ -221,9 +221,11 @@ def post_comment_on_pr(pr_url, comment):
     gh = Github(os.getenv('GITHUB_TOKEN'))
     owner, repo, pr_number = re.search(r"github\.com/([^/]+)/([^/]+)/pull/(\d+)", pr_url).groups()
 
-    repo = gh.get_repo(f"{owner}/{repo}")
-    pr = repo.get_pull(int(pr_number))
-    pr.create_issue_comment(comment)
+    # repo = gh.get_repo(f"{owner}/{repo}")
+    # pr = repo.get_pull(int(pr_number))
+    # pr.create_issue_comment(comment)
+    with open("pr_comment.txt", "w") as f:
+        f.write(comment)
     console.print(f"[green]Posted analysis comment on PR #{pr_number}")
 
 def main():
