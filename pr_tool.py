@@ -59,6 +59,29 @@ def get_pr_context(url: str) -> dict:
         'status': pr.state
     }
 
+def get_file_contents(changed_files, pr_url):
+    """Fetch content of changed files to provide more context to the LLM"""
+    repo, pr_number = extract_repo_and_pr(pr_url)
+    if not repo or not pr_number:
+        return ""
+    
+    _, head_repo, head_branch = get_pr_details(repo, pr_number)
+    
+    # Select important files (limit to avoid overwhelming context)
+    important_files = select_important_files(changed_files, max_files=10)
+    
+    file_contents = []
+    for file in important_files:
+        url = f"https://raw.githubusercontent.com/{head_repo}/refs/heads/{head_branch}/{file.filename}"
+        response = requests.get(url)
+        
+        if response.status_code == 200:
+            content = response.text
+            
+            file_contents.append(f"File: {file.filename}\n```\n{content}\n```\n")
+    
+    return "\n".join(file_contents)
+
 def handle_token_limit(text, max_tokens=400000):
     """Trim the text to fit within the token limit."""
     return text[:max_tokens]
@@ -73,7 +96,10 @@ def determine_pr_type(title, description):
     }
     
     title_lower = title.lower()
-    desc_lower = description.lower()
+    if description:
+        desc_lower = description.lower()
+    else:
+        desc_lower = ""
     
     for pr_type, words in keywords.items():
         if any(word in title_lower or word in desc_lower for word in words):
@@ -108,12 +134,7 @@ def generate_pr_summary(url):
     console.print("\n[cyan]Generating PR summary using AI...\n")
     pr_context = get_pr_context(url)
     
-    files_content = "\n".join([
-        f"File: {f.filename}\nChanges: +{f.additions}/-{f.deletions}\n"
-        for f in pr_context['changed_files']
-    ])
-
-    print(files_content)
+    files_content = get_file_contents(pr_context['changed_files'], url)
     
     prompt = f"""You are PR-Reviewer, a language model designed to review a Git Pull Request (PR).
     Summarize the following PR changes concisely:
