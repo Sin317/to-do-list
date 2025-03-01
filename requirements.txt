@@ -1,2 +1,5 @@
 requests
-github
+urllib3
+httpx
+PyGithub
+rich
