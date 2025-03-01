@@ -3,6 +3,7 @@ import subprocess
 import json
 import requests
 import re
+import sys
 import shutil
 from github import Github
 from rich.console import Console
