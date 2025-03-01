@@ -38,6 +38,24 @@ def run_semgrep(files):
         console.print(f"[red]Error running Semgrep: {e}")
     
     return semgrep_results
+
+
+def select_important_files(changed_files, max_files=5):
+    """Select the most important files for analysis based on changes and file type"""
+    # Prioritize files with most changes
+    sorted_files = sorted(changed_files, key=lambda f: f.additions + f.deletions, reverse=True)
+    
+    # Further prioritize code files over non-code files
+    code_extensions = ['.py', '.js', '.jsx', '.ts', '.tsx', '.java', '.c', '.cpp', '.cs', '.go', '.rb']
+    
+    code_files = [f for f in sorted_files if any(f.filename.endswith(ext) for ext in code_extensions)]
+    other_files = [f for f in sorted_files if f not in code_files]
+    
+    # Combine lists, prioritizing code files
+    important_files = code_files + other_files
+    
+    return important_files[:max_files]
+    
 def get_pr_context(url: str) -> dict:
     """Get PR details from GitHub"""
     gh = Github(os.getenv('GITHUB_TOKEN'))
