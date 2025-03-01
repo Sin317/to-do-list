@@ -1,0 +1,35 @@
+name: PR Review Bot
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  pr_review:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set Up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Install ollama
+        run: curl -fsSL https://ollama.com/install.sh | sh
+      - name: Run ollama
+        run: |
+            ollama serve &
+            ollama pull codellama
+
+      - name: Run PR Review
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python pr_tool.py --pr-url "${{ github.event.pull_request.html_url }}"
