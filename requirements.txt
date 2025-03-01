@@ -3,3 +3,4 @@ urllib3
 httpx
 PyGithub
 rich
+semgrep

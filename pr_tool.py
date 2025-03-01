@@ -261,10 +261,10 @@ if __name__ == "__main__":
         pr_url = sys.argv[2]
         console.print(f"[cyan]Running PR analysis for {pr_url}...\n")
 
-        # generate_pr_summary(pr_url)
-        # analyze_change_impact(pr_url)
+        generate_pr_summary(pr_url)
+        analyze_change_impact(pr_url)
 
-        # pr_comment = f"## AI PR Review Summary\n\n**Summary:**\n{PR_SUMMARY}\n\n**Semgrep Findings:**\n{json.dumps(SEMGREP_FINDINGS, indent=2)}"
-        post_comment_on_pr(pr_url, "hello")
+        pr_comment = f"## AI PR Review Summary\n\n**Summary:**\n{PR_SUMMARY}\n\n**Semgrep Findings:**\n{json.dumps(SEMGREP_FINDINGS, indent=2)}"
+        post_comment_on_pr(pr_url, pr_comment)
     else:
         console.print("[red]Missing PR URL. Run the script with `--pr-url <PR_URL>`")

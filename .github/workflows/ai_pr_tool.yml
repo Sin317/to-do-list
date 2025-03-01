@@ -25,12 +25,12 @@ jobs:
         run: |
           pip install -r requirements.txt
 
-    #   - name: Install ollama
-    #     run: curl -fsSL https://ollama.com/install.sh | sh
-    #   - name: Run ollama
-    #     run: |
-    #         ollama serve &
-    #         ollama pull codellama
+      - name: Install ollama
+        run: curl -fsSL https://ollama.com/install.sh | sh
+      - name: Run ollama
+        run: |
+            ollama serve &
+            ollama pull codellama
 
       - name: Run PR Review
         env:
