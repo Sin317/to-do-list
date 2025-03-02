@@ -14,11 +14,49 @@ OLLAMA_API_URL = "http://localhost:11434/api/generate"
 MODEL_NAME = "codellama"
 GITHUB_API_URL = "https://api.github.com"
 
-global PR_SUMMARY, SEMGREP_FINDINGS, FILES_CONTENT, CHANGE_ANALYSIS
+global PR_SUMMARY, SEMGREP_FINDINGS, FILES_CONTENT, CHANGE_ANALYSIS, PR_DIFFS, PR_DIFF_FILES
 PR_SUMMARY = ""
 SEMGREP_FINDINGS = []
 FILES_CONTENT = dict()
 CHANGE_ANALYSIS = ""
+PR_DIFFS = ""
+PR_DIFF_FILES = dict()
+
+def parse_git_diff(diff_text):
+    """
+    Parses a Git diff string and returns a dictionary mapping filenames to their respective diffs.
+    
+    Args:
+        diff_text (str): The raw Git diff string.
+    
+    Returns:
+        dict: A dictionary where keys are filenames and values are their respective diffs.
+    """
+    file_diffs = {}
+    current_file = None
+    diff_lines = []
+
+    # Regex to match file changes in the diff format
+    file_change_pattern = re.compile(r"^diff --git a\/(.+?) b\/(.+)$")
+
+    for line in diff_text.splitlines():
+        match = file_change_pattern.match(line)
+        if match:
+            # Store the previous file diff if one exists
+            if current_file and diff_lines:
+                file_diffs[current_file] = "\n".join(diff_lines)
+            
+            # Start tracking a new file
+            current_file = match.group(2)  # Capture the filename after 'b/'
+            diff_lines = [line]  # Start collecting lines for this file
+        elif current_file:
+            diff_lines.append(line)
+
+    # Store the last collected diff
+    if current_file and diff_lines:
+        file_diffs[current_file] = "\n".join(diff_lines)
+
+    return file_diffs
 
 def get_pr_diff():
     """Fetch the full PR diff using the GitHub API."""
@@ -37,7 +75,8 @@ def get_pr_diff():
         print(f"Failed to fetch PR diff: {response.text}")
         return None
 
-    print(response.text)
+    PR_DIFFS = response.text
+    PR_DIFF_FILES = parse_git_diff(response.text)
     return response.text 
 
 def run_semgrep(files):
@@ -156,8 +195,10 @@ def generate_custom_prompt(pr_type, pr_context, files_content):
     Summarize the following PR changes concisely:
     Title: {pr_context['title']}
     Description: {pr_context['description']}
-    Changed Files and Contents:
+    Changed File Contents:
     {files_content}
+    File Diffs:
+    {PR_DIFFS}
     If applicable, your summary should include a note about alterations to the signatures of exported functions, global data structures and variables, and any changes that might affect the external interface or behavior of the code.
     Important:
     - In your summary do not mention that the file needs a through review or caution about potential issues.
@@ -181,16 +222,16 @@ def generate_pr_summary(url):
     
     files_content = get_file_contents(pr_context['changed_files'], url)
     
-    prompt = f"""You are PR-Reviewer, a language model designed to review a Git Pull Request (PR).
-    Summarize the following PR changes concisely:
-    Title: {pr_context['title']}
-    Description: {pr_context['description']}
-    Changed Files and Contents:
-    {files_content}
-    Provide a clear and concise summary of the content changes.
-    If applicable, your summary should include a note about alterations to the signatures of exported functions, global data structures and variables, and any changes that might affect the external interface or behavior of the code.
-    """
-    prompt = handle_token_limit(prompt)
+    # prompt = f"""You are PR-Reviewer, a language model designed to review a Git Pull Request (PR).
+    # Summarize the following PR changes concisely:
+    # Title: {pr_context['title']}
+    # Description: {pr_context['description']}
+    # Changed Files and Contents:
+    # {files_content}
+    # Provide a clear and concise summary of the content changes.
+    # If applicable, your summary should include a note about alterations to the signatures of exported functions, global data structures and variables, and any changes that might affect the external interface or behavior of the code.
+    # """
+    # prompt = handle_token_limit(prompt)
 
     pr_type = determine_pr_type(pr_context["title"], pr_context["description"])
     prompt = generate_custom_prompt(pr_type, pr_context, files_content)
@@ -219,7 +260,7 @@ def analyze_change_impact(url):
         changes = f"+{file.additions}/-{file.deletions}"
         if file.filename in FILES_CONTENT:
             changes = FILES_CONTENT[file.filename]
-        file_analysis = f"""File: {file.filename}\nChanges: {changes}\nSemgrep Findings: {findings}\n"""
+        file_analysis = f"""File: {file.filename}\nChanged File {changes}\nChanges between original and new content: {PR_DIFF_FILES[{file.file_path}]}\n\nSemgrep Findings: {findings}\n"""
         prompt = f"""Analyze the impact of changes in this PR file:
         Each change starts with diff --git a/{file.filename} b/{file.filename} indicating the file being modified.
         The index line shows file version hashes before and after the change.
@@ -406,7 +447,7 @@ if __name__ == "__main__":
         analyze_change_impact(pr_url)
 
         pr_comment = f"## AI PR Review Summary\n\n**Summary:**\n{PR_SUMMARY}\n\n**Semgrep Findings:**\n{json.dumps(SEMGREP_FINDINGS, indent=2)}"
-        pr_change_analysis = f"## AI PR Review Change Analysis\n\n**Description:**\n{CHANGE_ANALYSIS}\n}"
+        pr_change_analysis = f"## AI PR Review Change Analysis\n\n**Description:**\n{CHANGE_ANALYSIS}\n"
         post_comment_on_pr(pr_url, pr_comment, "pr_summary.txt")
         post_comment_on_pr(pr_url, pr_change_analysis, "pr_analysis.txt")
     else:
