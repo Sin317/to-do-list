@@ -59,6 +59,7 @@ def parse_git_diff(diff_text):
 
 def get_pr_diff():
     """Fetch the full PR diff using the GitHub API."""
+    global PR_DIFF_FILES, PR_DIFFS
     github_token = os.getenv('GITHUB_TOKEN')
     pr_number = os.getenv("PR_NUMBER")
     repo_name = os.getenv("REPO_NAME")
@@ -250,7 +251,7 @@ def generate_pr_summary(url):
 
 def analyze_change_impact(url):
     """Analyzes the impact of PR changes in depth."""
-    global SEMGREP_FINDINGS
+    global SEMGREP_FINDINGS, CHANGE_ANALYSIS
     console.print("\n[cyan]Analyzing PR Change Impact...\n")
     pr_context = get_pr_context(url)
     
