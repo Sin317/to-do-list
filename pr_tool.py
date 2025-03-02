@@ -12,10 +12,34 @@ from rich.progress import Progress
 console = Console()
 OLLAMA_API_URL = "http://localhost:11434/api/generate"
 MODEL_NAME = "codellama"
+GITHUB_API_URL = "https://api.github.com"
 
-global PR_SUMMARY, SEMGREP_FINDINGS
+global PR_SUMMARY, SEMGREP_FINDINGS, FILES_CONTENT, CHANGE_ANALYSIS
 PR_SUMMARY = ""
 SEMGREP_FINDINGS = []
+FILES_CONTENT = dict()
+CHANGE_ANALYSIS = ""
+
+def get_pr_diff():
+    """Fetch the full PR diff using the GitHub API."""
+    github_token = os.getenv('GITHUB_TOKEN')
+    pr_number = os.getenv("PR_NUMBER")
+    repo_name = os.getenv("REPO_NAME")
+    diff_url = f"{GITHUB_API_URL}/repos/{repo}/pulls/{pr_number}"
+    headers = {
+        "Authorization": f"Bearer {github_token}",
+        "Accept": "application/vnd.github.diff"  # Request raw diff format
+    }
+
+    response = requests.get(diff_url, headers=headers)
+
+    if response.status_code != 200:
+        print(f"Failed to fetch PR diff: {response.text}")
+        return None
+
+    print(response.text)
+    return response.text 
+
 def run_semgrep(files):
     """Runs Semgrep on the given files and returns findings."""
     semgrep_results = []
@@ -98,7 +122,8 @@ def get_file_contents(changed_files, pr_url):
             
             file_contents.append(f"File: {file.filename}\n```\n{content}\n```\n")
     
-    return "\n".join(file_contents)
+            FILES_CONTENT[file.filename] = content
+    return  "\n".join(file_contents)
 
 def handle_token_limit(text, max_tokens=400000):
     """Trim the text to fit within the token limit."""
@@ -188,11 +213,14 @@ def analyze_change_impact(url):
     
     for file in pr_context['changed_files']:
         findings = [f for f in SEMGREP_FINDINGS if f['file'] == file.filename]
-        file_analysis = f"""File: {file.filename}\nChanges: +{file.additions}/-{file.deletions}\nFindings: {findings}\n"""
-        
+        #file_analysis = f"""File: {file.filename}\nChanges: +{file.additions}/-{file.deletions}\nFindings: {findings}\n"""
+        changes = f"+{file.additions}/-{file.deletions}"
+        if file.filename in FILES_CONTENT:
+            changes = FILES_CONTENT[file.filename]
+        file_analysis = f"""File: {file.filename}\nChanges: {changes}\nSemgrep Findings: {findings}\n"""
         prompt = f"""Analyze the impact of changes in this PR file:
         {file_analysis}
-        How do these changes affect the overall project and code quality?"""
+        How do these changes affect the overall project and code quality? Explain in 2-3 sentences atmost."""
         prompt = handle_token_limit(prompt)
         
         payload = {"model": MODEL_NAME, "prompt": prompt, "stream": False}
@@ -200,6 +228,7 @@ def analyze_change_impact(url):
         
         if response.status_code == 200:
             result = response.json()
+            CHANGE_ANALYSIS += f"\nImpact Analysis for {file.filename}:\n{result.get('response', '[Error]')}\n"
             console.print(f"\n[green]Impact Analysis for {file.filename}:\n{result.get('response', '[Error]')}\n")
         else:
             console.print(f"[red]Error analyzing {file.filename}: {response.status_code} - {response.text}")
@@ -348,10 +377,14 @@ if __name__ == "__main__":
         pr_url = sys.argv[2]
         console.print(f"[cyan]Running PR analysis for {pr_url}...\n")
 
-        generate_pr_summary(pr_url)
-        analyze_change_impact(pr_url)
+        get_pr_diff()
+        
+        # generate_pr_summary(pr_url)
+        # analyze_change_impact(pr_url)
 
-        pr_comment = f"## AI PR Review Summary\n\n**Summary:**\n{PR_SUMMARY}\n\n**Semgrep Findings:**\n{json.dumps(SEMGREP_FINDINGS, indent=2)}"
-        post_comment_on_pr(pr_url, pr_comment)
+        # pr_comment = f"## AI PR Review Summary\n\n**Summary:**\n{PR_SUMMARY}\n\n**Semgrep Findings:**\n{json.dumps(SEMGREP_FINDINGS, indent=2)}"
+        # pr_change_analysis = f"## AI PR Review Change Analysis\n\n**Description:**\n{CHANGE_ANALYSIS}\n}"
+        # post_comment_on_pr(pr_url, pr_comment)
+        # post_comment_on_pr(pr_url, pr_change_analysis)
     else:
         console.print("[red]Missing PR URL. Run the script with `--pr-url <PR_URL>`")
