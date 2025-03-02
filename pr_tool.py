@@ -263,7 +263,8 @@ def analyze_change_impact(url):
             changes = FILES_CONTENT[file.filename]
         curr_change = PR_DIFF_FILES[file.filename]
         file_analysis = f"""File: {file.filename}\nChanged File {changes}\nChanges between original and new content: {curr_change}\n\nSemgrep Findings: {findings}\n"""
-        prompt = f"""Analyze the impact of changes in this PR file:
+        prompt = f"""You are PR-Reviewer, a language model designed to review a Git Pull Request (PR).
+        Analyze the impact of changes in this PR file:
         Each change starts with diff --git a/{file.filename} b/{file.filename} indicating the file being modified.
         The index line shows file version hashes before and after the change.
         Lines beginning with --- and +++ indicate the file's previous and new versions.
@@ -281,11 +282,14 @@ def analyze_change_impact(url):
             1. Identify what settings or dependencies have changed.
             2. Assess if the change introduces compatibility issues or risks.
         For Code Changes (.py, .js, .html, etc.):
-            1. Analyze function modifications, new feature additions, or deletions.
-            2. Determine if the change affects existing logic or introduces new dependencies.
+            1. Analyze function modifications, new feature additions, or deletions without displaying the changes verbatim.
+            2. Determine if the change affects existing logic or what is the intended effect of the new code or introduces new dependencies.
         For New Files:
             1. Describe the purpose of the new file.
             2. Consider how it integrates with the existing codebase.
+
+        Important:
+        Do NOT mention that the file needs a through review or that it is dfficult to without further context.
         """
         prompt = handle_token_limit(prompt)
         
