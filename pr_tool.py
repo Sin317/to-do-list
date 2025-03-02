@@ -260,7 +260,8 @@ def analyze_change_impact(url):
         changes = f"+{file.additions}/-{file.deletions}"
         if file.filename in FILES_CONTENT:
             changes = FILES_CONTENT[file.filename]
-        file_analysis = f"""File: {file.filename}\nChanged File {changes}\nChanges between original and new content: {PR_DIFF_FILES[{file.filename}]}\n\nSemgrep Findings: {findings}\n"""
+        curr_change = PR_DIFF_FILES[file.filename]
+        file_analysis = f"""File: {file.filename}\nChanged File {changes}\nChanges between original and new content: {curr_change}\n\nSemgrep Findings: {findings}\n"""
         prompt = f"""Analyze the impact of changes in this PR file:
         Each change starts with diff --git a/{file.filename} b/{file.filename} indicating the file being modified.
         The index line shows file version hashes before and after the change.
