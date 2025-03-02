@@ -56,6 +56,7 @@ def parse_git_diff(diff_text):
     if current_file and diff_lines:
         file_diffs[current_file] = "\n".join(diff_lines)
 
+    print(file_diffs)
     return file_diffs
 
 def get_pr_diff():
