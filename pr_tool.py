@@ -55,8 +55,6 @@ def parse_git_diff(diff_text):
     # Store the last collected diff
     if current_file and diff_lines:
         file_diffs[current_file] = "\n".join(diff_lines)
-
-    print(file_diffs)
     return file_diffs
 
 def get_pr_diff():
@@ -138,7 +136,8 @@ def get_pr_context(url: str) -> dict:
         'description': pr.body,
         'changed_files': list(pr.get_files()),
         'commits': list(pr.get_commits()),
-        'status': pr.state
+        'status': pr.state,
+        
     }
 
 def get_file_contents(changed_files, pr_url):
@@ -261,7 +260,7 @@ def analyze_change_impact(url):
         changes = f"+{file.additions}/-{file.deletions}"
         if file.filename in FILES_CONTENT:
             changes = FILES_CONTENT[file.filename]
-        file_analysis = f"""File: {file.filename}\nChanged File {changes}\nChanges between original and new content: {PR_DIFF_FILES[{file.file_path}]}\n\nSemgrep Findings: {findings}\n"""
+        file_analysis = f"""File: {file.filename}\nChanged File {changes}\nChanges between original and new content: {PR_DIFF_FILES[{file.filename}]}\n\nSemgrep Findings: {findings}\n"""
         prompt = f"""Analyze the impact of changes in this PR file:
         Each change starts with diff --git a/{file.filename} b/{file.filename} indicating the file being modified.
         The index line shows file version hashes before and after the change.
@@ -445,11 +444,11 @@ if __name__ == "__main__":
         get_pr_diff()
         
         generate_pr_summary(pr_url)
-        analyze_change_impact(pr_url)
-
         pr_comment = f"## AI PR Review Summary\n\n**Summary:**\n{PR_SUMMARY}\n\n**Semgrep Findings:**\n{json.dumps(SEMGREP_FINDINGS, indent=2)}"
-        pr_change_analysis = f"## AI PR Review Change Analysis\n\n**Description:**\n{CHANGE_ANALYSIS}\n"
         post_comment_on_pr(pr_url, pr_comment, "pr_summary.txt")
+        
+        analyze_change_impact(pr_url)
+        pr_change_analysis = f"## AI PR Review Change Analysis\n\n**Description:**\n{CHANGE_ANALYSIS}\n"
         post_comment_on_pr(pr_url, pr_change_analysis, "pr_analysis.txt")
     else:
         console.print("[red]Missing PR URL. Run the script with `--pr-url <PR_URL>`")
