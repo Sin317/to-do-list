@@ -159,6 +159,8 @@ def generate_custom_prompt(pr_type, pr_context, files_content):
     Changed Files and Contents:
     {files_content}
     If applicable, your summary should include a note about alterations to the signatures of exported functions, global data structures and variables, and any changes that might affect the external interface or behavior of the code.
+    Important:
+    - In your summary do not mention that the file needs a through review or caution about potential issues.
     """
 
     prompts = {
@@ -219,8 +221,29 @@ def analyze_change_impact(url):
             changes = FILES_CONTENT[file.filename]
         file_analysis = f"""File: {file.filename}\nChanges: {changes}\nSemgrep Findings: {findings}\n"""
         prompt = f"""Analyze the impact of changes in this PR file:
+        Each change starts with diff --git a/{file.filename} b/{file.filename} indicating the file being modified.
+        The index line shows file version hashes before and after the change.
+        Lines beginning with --- and +++ indicate the file's previous and new versions.
+        Added lines are prefixed with + (new content).
+        Removed lines are prefixed with - (deleted content).
+        Contextual lines (unchanged) have no prefix and help provide surrounding context.
+        If a file is new, it starts with new file mode, and if deleted, it starts with deleted file mode.
+        
         {file_analysis}
-        How do these changes affect the overall project and code quality? Explain in 2-3 sentences atmost."""
+        
+        How do these changes affect the overall project and code quality? Explain in 2-3 sentences atmost.
+        Analysis Guidelines:
+
+        For Configuration & Workflow Changes (.yml, .json, etc.):
+            1. Identify what settings or dependencies have changed.
+            2. Assess if the change introduces compatibility issues or risks.
+        For Code Changes (.py, .js, .html, etc.):
+            1. Analyze function modifications, new feature additions, or deletions.
+            2. Determine if the change affects existing logic or introduces new dependencies.
+        For New Files:
+            1. Describe the purpose of the new file.
+            2. Consider how it integrates with the existing codebase.
+        """
         prompt = handle_token_limit(prompt)
         
         payload = {"model": MODEL_NAME, "prompt": prompt, "stream": False}
@@ -228,7 +251,7 @@ def analyze_change_impact(url):
         
         if response.status_code == 200:
             result = response.json()
-            CHANGE_ANALYSIS += f"\nImpact Analysis for {file.filename}:\n{result.get('response', '[Error]')}\n"
+            CHANGE_ANALYSIS += f"\n**Impact Analysis for {file.filename}**:\n{result.get('response', '[Error]')}\n"
             console.print(f"\n[green]Impact Analysis for {file.filename}:\n{result.get('response', '[Error]')}\n")
         else:
             console.print(f"[red]Error analyzing {file.filename}: {response.status_code} - {response.text}")
@@ -332,7 +355,7 @@ def download_files(temp_dir, repo, files, branch):
     
     return downloaded_files
 
-def post_comment_on_pr(pr_url, comment):
+def post_comment_on_pr(pr_url, comment, file_name):
     """Posts a comment on the PR with analysis results."""
     gh = Github(os.getenv('GITHUB_TOKEN'))
     owner, repo, pr_number = re.search(r"github\.com/([^/]+)/([^/]+)/pull/(\d+)", pr_url).groups()
@@ -340,7 +363,7 @@ def post_comment_on_pr(pr_url, comment):
     repo = gh.get_repo(f"{owner}/{repo}")
     pr = repo.get_pull(int(pr_number))
     pr.create_issue_comment(comment)
-    with open("pr_comment.txt", "w") as f:
+    with open(file_name, "w") as f:
         f.write(comment)
     console.print(f"[green]Posted analysis comment on PR #{pr_number}")
 
@@ -379,12 +402,12 @@ if __name__ == "__main__":
 
         get_pr_diff()
         
-        # generate_pr_summary(pr_url)
-        # analyze_change_impact(pr_url)
+        generate_pr_summary(pr_url)
+        analyze_change_impact(pr_url)
 
-        # pr_comment = f"## AI PR Review Summary\n\n**Summary:**\n{PR_SUMMARY}\n\n**Semgrep Findings:**\n{json.dumps(SEMGREP_FINDINGS, indent=2)}"
-        # pr_change_analysis = f"## AI PR Review Change Analysis\n\n**Description:**\n{CHANGE_ANALYSIS}\n}"
-        # post_comment_on_pr(pr_url, pr_comment)
-        # post_comment_on_pr(pr_url, pr_change_analysis)
+        pr_comment = f"## AI PR Review Summary\n\n**Summary:**\n{PR_SUMMARY}\n\n**Semgrep Findings:**\n{json.dumps(SEMGREP_FINDINGS, indent=2)}"
+        pr_change_analysis = f"## AI PR Review Change Analysis\n\n**Description:**\n{CHANGE_ANALYSIS}\n}"
+        post_comment_on_pr(pr_url, pr_comment, "pr_summary.txt")
+        post_comment_on_pr(pr_url, pr_change_analysis, "pr_analysis.txt")
     else:
         console.print("[red]Missing PR URL. Run the script with `--pr-url <PR_URL>`")
