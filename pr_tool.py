@@ -25,7 +25,7 @@ def get_pr_diff():
     github_token = os.getenv('GITHUB_TOKEN')
     pr_number = os.getenv("PR_NUMBER")
     repo_name = os.getenv("REPO_NAME")
-    diff_url = f"{GITHUB_API_URL}/repos/{repo}/pulls/{pr_number}"
+    diff_url = f"{GITHUB_API_URL}/repos/{repo_name}/pulls/{pr_number}"
     headers = {
         "Authorization": f"Bearer {github_token}",
         "Accept": "application/vnd.github.diff"  # Request raw diff format
