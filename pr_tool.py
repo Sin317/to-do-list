@@ -299,6 +299,12 @@ def analyze_change_impact(url):
         Mention any other important information that might help the reviewer (eg: catching bugs or improve test coverage)
         The factors for good code are:
         Clarity, Correctness, Modular, Failure Handling, Security and analyzing blast radius.
+        Identify any inconsistencies and highlight the lines numbers where this happens.
+
+        Sample output format:
+        Changes in this file modify the authentication service configuration, updating API endpoint URLs. This ensures the service connects to the correct resources. 
+        The update could affect existing login functionality if not deployed correctly, but appears to correct a previous bug.
+        Ensure proper testing is in place.
         """
         prompt = handle_token_limit(prompt)
         
@@ -459,11 +465,11 @@ if __name__ == "__main__":
         get_pr_diff()
         
         generate_pr_summary(pr_url)
-        pr_comment = f"## AI PR Review Summary\n\n**Summary:**\n{PR_SUMMARY}\n\n**Semgrep Findings:**\n{json.dumps(SEMGREP_FINDINGS, indent=2)}"
+        pr_comment = f"## AI PR Review Summary\n\n**Summary:**\n{PR_SUMMARY}\n"
         post_comment_on_pr(pr_url, pr_comment, "pr_summary.txt")
         
         analyze_change_impact(pr_url)
-        pr_change_analysis = f"## AI PR Review Change Analysis\n\n**Description:**\n{CHANGE_ANALYSIS}\n"
+        pr_change_analysis = f"## AI PR Review File Change Analysis\n\n**Description:**\n{CHANGE_ANALYSIS}\n"
         post_comment_on_pr(pr_url, pr_change_analysis, "pr_analysis.txt")
     else:
         console.print("[red]Missing PR URL. Run the script with `--pr-url <PR_URL>`")
