@@ -291,6 +291,9 @@ def analyze_change_impact(url):
 
         Important:
         Do NOT mention that the file needs a through review or that it is dfficult to without further context.
+        Mention any other important information that might help the reviewer (eg: catching bugs or improve test coverage)
+        The factors for good code are:
+        Clarity, Correctness, Modular, Failure Handling, Security and analyzing blast radius.
         """
         prompt = handle_token_limit(prompt)
         
