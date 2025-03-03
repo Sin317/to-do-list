@@ -8,13 +8,13 @@ permissions:
   issues: write
   pull-requests: write
 
-env:
-  AI_MODEL: qwen2.5-coder:3b
+
 
 jobs:
   pr_review:
     runs-on: ubuntu-latest
-
+    env:
+      AI_MODEL: qwen2.5-coder:3b
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -40,6 +40,5 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO_NAME: ${{ github.repository }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OLLAMA_MODEL: ${{ AI_MODEL }}
         run: |
           python pr_tool.py --pr-url "${{ github.event.pull_request.html_url }}"

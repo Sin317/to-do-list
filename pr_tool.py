@@ -11,7 +11,7 @@ from rich.progress import Progress
 
 console = Console()
 OLLAMA_API_URL = "http://localhost:11434/api/generate"
-MODEL_NAME = os.getenv("OLLAMA_MODEL")
+MODEL_NAME = os.getenv("AI_MODEL")
 GITHUB_API_URL = "https://api.github.com"
 
 global PR_SUMMARY, SEMGREP_FINDINGS, FILES_CONTENT, CHANGE_ANALYSIS, PR_DIFFS, PR_DIFF_FILES
