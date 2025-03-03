@@ -200,7 +200,7 @@ def generate_custom_prompt(pr_type, pr_context, files_content):
     {files_content}
     File Diffs:
     {PR_DIFFS}
-    If applicable, your summary should include a note about alterations to the signatures of exported functions, global data structures and variables, and any changes that might affect the external interface or behavior of the code.
+    If any of these are breaking only Then, your summary should include a note about alterations to the signatures of exported functions, global data structures and variables, and any changes that might affect the external interface or behavior of the code.
     Important:
     - In your summary do not mention that the file needs a through review or caution about potential issues.
     """
@@ -213,7 +213,12 @@ def generate_custom_prompt(pr_type, pr_context, files_content):
         "general": f"{base_prompt}"
     }
     
-    return prompts.get(pr_type, prompts["general"])
+    ending = """\nRespond in the following way:
+    Include the summary of the overall changes in three to four sentences.
+    eg:  This PR addresses a bug where the user login was failing due to an incorrect API endpoint. The fix updates the endpoint URL in the authentication service. Additionally, a new feature was added to display user profile pictures. The feature introduces a new image processing library and updates the user profile component to fetch and display the image.
+    \n
+    """
+    return prompts.get(pr_type, prompts["general"]) + ending
 
 def generate_pr_summary(url):
     """Generates a PR summary using Ollama's CodeLlama model."""
