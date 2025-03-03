@@ -254,8 +254,9 @@ def analyze_change_impact(url):
     global SEMGREP_FINDINGS, CHANGE_ANALYSIS
     console.print("\n[cyan]Analyzing PR Change Impact...\n")
     pr_context = get_pr_context(url)
-    
+    idx = 0
     for file in pr_context['changed_files']:
+        idx += 1
         findings = [f for f in SEMGREP_FINDINGS if f['file'] == file.filename]
         #file_analysis = f"""File: {file.filename}\nChanges: +{file.additions}/-{file.deletions}\nFindings: {findings}\n"""
         changes = f"+{file.additions}/-{file.deletions}"
@@ -298,7 +299,7 @@ def analyze_change_impact(url):
         
         if response.status_code == 200:
             result = response.json()
-            CHANGE_ANALYSIS += f"\n**Impact Analysis for {file.filename}**:\n{result.get('response', '[Error]')}\n"
+            CHANGE_ANALYSIS += f"\n{idx}. **Impact Analysis for `{file.filename}`**:\n\t{result.get('response', '[Error]')}\n"
             console.print(f"\n[green]Impact Analysis for {file.filename}:\n{result.get('response', '[Error]')}\n")
         else:
             console.print(f"[red]Error analyzing {file.filename}: {response.status_code} - {response.text}")
