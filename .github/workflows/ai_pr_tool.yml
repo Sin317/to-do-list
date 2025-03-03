@@ -14,7 +14,7 @@ jobs:
   pr_review:
     runs-on: ubuntu-latest
     env:
-      AI_MODEL: deepseek-coder-v2
+      AI_MODEL: qwen2.5-coder:7b
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
