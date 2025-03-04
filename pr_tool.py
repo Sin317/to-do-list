@@ -468,8 +468,8 @@ if __name__ == "__main__":
         pr_comment = f"## AI PR Review Summary\n\n**Summary:**\n{PR_SUMMARY}\n"
         post_comment_on_pr(pr_url, pr_comment, "pr_summary.txt")
         
-        # analyze_change_impact(pr_url)
-        # pr_change_analysis = f"## AI PR Review File Change Analysis\n\n**Description:**\n{CHANGE_ANALYSIS}\n"
-        # post_comment_on_pr(pr_url, pr_change_analysis, "pr_analysis.txt")
+        analyze_change_impact(pr_url)
+        pr_change_analysis = f"## AI PR Review File Change Analysis\n\n**Description:**\n{CHANGE_ANALYSIS}\n"
+        post_comment_on_pr(pr_url, pr_change_analysis, "pr_analysis.txt")
     else:
         console.print("[red]Missing PR URL. Run the script with `--pr-url <PR_URL>`")
