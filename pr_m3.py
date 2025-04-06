@@ -465,11 +465,12 @@ def review_file_content(file_name, file_content, diff_content):
     Changed lines (line numbers): {', '.join(map(str, changed_lines))}
     
     Analyze ONLY the changed lines and provide specific feedback on:
-    1. Code correctness and logic issues
+    1. Code correctness and suggestions for optimal code (eg: space and time complexity) and logic issues
     2. Security vulnerabilities
     3. Performance concerns
     4. Style and readability issues
     5. Potential bugs or edge cases
+    6. Missing Test Coverage
     
     For each issue, provide:
     1. The exact line number
