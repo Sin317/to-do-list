@@ -22,6 +22,40 @@ CHANGE_ANALYSIS = ""
 PR_DIFFS = ""
 PR_DIFF_FILES = dict()
 
+def generate_pr_summary(url):
+    """Generates a PR summary using Ollama's CodeLlama model."""
+    global PR_SUMMARY
+    console.print("\n[cyan]Generating PR summary using AI...\n")
+    pr_context = get_pr_context(url)
+    
+    files_content = get_file_contents(pr_context['changed_files'], url)
+    
+    # prompt = f"""You are PR-Reviewer, a language model designed to review a Git Pull Request (PR).
+    # Summarize the following PR changes concisely:
+    # Title: {pr_context['title']}
+    # Description: {pr_context['description']}
+    # Changed Files and Contents:
+    # {files_content}
+    # Provide a clear and concise summary of the content changes.
+    # If applicable, your summary should include a note about alterations to the signatures of exported functions, global data structures and variables, and any changes that might affect the external interface or behavior of the code.
+    # """
+    # prompt = handle_token_limit(prompt)
+
+    pr_type = determine_pr_type(pr_context["title"], pr_context["description"])
+    prompt = generate_custom_prompt(pr_type, pr_context, files_content)
+    prompt = handle_token_limit(prompt)
+    
+    
+    payload = {"model": MODEL_NAME, "prompt": prompt, "stream": False}
+    response = requests.post(OLLAMA_API_URL, json=payload)
+    
+    if response.status_code == 200:
+        result = response.json()
+        PR_SUMMARY = result.get("response", "[Error generating summary]")
+        console.print(f"\n[green]PR Summary:\n{PR_SUMMARY}\n")
+    else:
+        console.print(f"[red]Error: {response.status_code} - {response.text}")
+
 def parse_git_diff(diff_text):
     """
     Parses a Git diff string and returns a dictionary mapping filenames to their respective diffs.
@@ -469,6 +503,70 @@ def main():
     #     else:
     #         console.print("[yellow]Invalid choice. Try again.")
 
+
+def analyze_change_impact(url):
+    """Analyzes the impact of PR changes in depth."""
+    global SEMGREP_FINDINGS, CHANGE_ANALYSIS
+    console.print("\n[cyan]Analyzing PR Change Impact...\n")
+    pr_context = get_pr_context(url)
+    idx = 0
+    for file in pr_context['changed_files']:
+        idx += 1
+        findings = [f for f in SEMGREP_FINDINGS if f['file'] == file.filename]
+        #file_analysis = f"""File: {file.filename}\nChanges: +{file.additions}/-{file.deletions}\nFindings: {findings}\n"""
+        changes = f"+{file.additions}/-{file.deletions}"
+        if file.filename in FILES_CONTENT:
+            changes = FILES_CONTENT[file.filename]
+        curr_change = PR_DIFF_FILES[file.filename]
+        file_analysis = f"""File: {file.filename}\nChanged File {changes}\nChanges between original and new content: {curr_change}\n\nSemgrep Findings: {findings}\n"""
+        prompt = f"""You are PR-Reviewer, a language model designed to review a Git Pull Request (PR).
+        Analyze the impact of changes in this PR file:
+        Each change starts with diff --git a/{file.filename} b/{file.filename} indicating the file being modified.
+        The index line shows file version hashes before and after the change.
+        Lines beginning with --- and +++ indicate the file's previous and new versions.
+        Added lines are prefixed with + (new content).
+        Removed lines are prefixed with - (deleted content).
+        Contextual lines (unchanged) have no prefix and help provide surrounding context.
+        If a file is new, it starts with new file mode, and if deleted, it starts with deleted file mode.
+        
+        {file_analysis}
+        
+        How do these changes affect the overall project and code quality? Explain in 2-3 sentences atmost.
+        Analysis Guidelines:
+
+        For Configuration & Workflow Changes (.yml, .json, etc.):
+            1. Identify what settings or dependencies have changed.
+            2. Assess if the change introduces compatibility issues or risks.
+        For Code Changes (.py, .js, .html, etc.):
+            1. Analyze function modifications, new feature additions, or deletions without displaying the changes verbatim.
+            2. Determine if the change affects existing logic or what is the intended effect of the new code or introduces new dependencies.
+        For New Files:
+            1. Describe the purpose of the new file.
+            2. Consider how it integrates with the existing codebase.
+
+        Important:
+        Do NOT mention that the file needs a through review or that it is dfficult to without further context.
+        Mention any other important information that might help the reviewer (eg: catching bugs or improve test coverage)
+        The factors for good code are:
+        Clarity, Correctness, Modular, Failure Handling, Security and analyzing blast radius.
+        Identify any inconsistencies and highlight the lines numbers where this happens.
+
+        Sample output format:
+        Changes in this file modify the authentication service configuration, updating API endpoint URLs. This ensures the service connects to the correct resources. 
+        The update could affect existing login functionality if not deployed correctly, but appears to correct a previous bug.
+        Ensure proper testing is in place.
+        """
+        prompt = handle_token_limit(prompt)
+        
+        payload = {"model": MODEL_NAME, "prompt": prompt, "stream": False}
+        response = requests.post(OLLAMA_API_URL, json=payload)
+        
+        if response.status_code == 200:
+            result = response.json()
+            CHANGE_ANALYSIS += f"\n{idx}. **Impact Analysis for `{file.filename}`**:\n\t{result.get('response', '[Error]')}\n"
+            console.print(f"\n[green]Impact Analysis for {file.filename}:\n{result.get('response', '[Error]')}\n")
+        else:
+            console.print(f"[red]Error analyzing {file.filename}: {response.status_code} - {response.text}")
 
 
 if __name__ == "__main__":
