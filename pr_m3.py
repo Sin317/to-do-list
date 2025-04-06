@@ -487,6 +487,7 @@ def review_file_content(file_name, file_content, diff_content):
     RESPOND ONLY WITH THE JSON LIST.
     """
     
+    print(prompt)
     payload = {"model": MODEL_NAME, "prompt": prompt, "stream": False}
     response = requests.post(OLLAMA_API_URL, json=payload)
     
