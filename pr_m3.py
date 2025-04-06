@@ -8,6 +8,7 @@ import shutil
 from github import Github
 from rich.console import Console
 from rich.progress import Progress
+from threading import Timer
 
 console = Console()
 OLLAMA_API_URL = "http://localhost:11434/api/generate"
@@ -454,8 +455,8 @@ def review_file_content(pr, file_name, file_content, diff_content):
     # Create a prompt that focuses on code quality issues
     prompt = f"""You are PR-Reviewer, a language model skilled at detailed code review.
     
-    Review the following file and provide specific line-by-line comments where issues exist:
-    
+    Review the following file and provide specific line-by-line comments **ONLY WHERE ISSUES EXIST**.
+
     File: {file_name}
     
     ```
