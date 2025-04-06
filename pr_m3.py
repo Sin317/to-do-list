@@ -569,7 +569,7 @@ def post_line_comments(pr_url, file_reviews):
             try:
                 pr.create_review_comment(
                     body="hello",
-                    commit_id=latest_commit.sha,
+                    commit=latest_commit.sha,
                     path=file_name,
                     line=1
                 )
@@ -578,11 +578,6 @@ def post_line_comments(pr_url, file_reviews):
             except Exception as e:
                 console.print(f"[red]Error posting comment to {file_name}:: {e}")
 
-            pr.create_review_comment(
-                    body="hello",
-                    path=file_name,
-                    line=1
-                )
     
     console.print(f"[green]Posted {comment_count} line-specific comments on the PR")
 
