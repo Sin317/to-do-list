@@ -588,16 +588,19 @@ def review_all_files(pr_url):
     
     file_reviews = {}
     pr = Github(os.getenv('GITHUB_TOKEN')).get_repo("/".join(extract_repo_and_pr(pr_url)[0].split("/"))).get_pull(int(extract_repo_and_pr(pr_url)[1]))
-    
+    f = ""
     # Review each file that has content available
     for file_name, file_content in FILES_CONTENT.items():
         if file_name in PR_DIFF_FILES:
+            f = file_name
             diff_content = PR_DIFF_FILES[file_name]
             review_comments = review_file_content(pr, file_name, file_content, diff_content)
             
             if review_comments:
                 file_reviews[file_name] = review_comments
     
+    if not file_reviews:
+        file_reviews[file_name] = {"line": "1", "comment": "test"}
     # Post comments on the PR
     if file_reviews:
         post_line_comments(pr_url, file_reviews)
@@ -629,12 +632,12 @@ if __name__ == "__main__":
         get_pr_diff()
         
         generate_pr_summary(pr_url)
-        pr_comment = f"## AI PR Review Summary\n\n**Summary:**\n{PR_SUMMARY}\n"
-        post_comment_on_pr(pr_url, pr_comment, "pr_summary.txt")
+        # pr_comment = f"## AI PR Review Summary\n\n**Summary:**\n{PR_SUMMARY}\n"
+        # post_comment_on_pr(pr_url, pr_comment, "pr_summary.txt")
         
-        analyze_change_impact(pr_url)
-        pr_change_analysis = f"## AI PR Review File Change Analysis\n\n**Description:**\n{CHANGE_ANALYSIS}\n"
-        post_comment_on_pr(pr_url, pr_change_analysis, "pr_analysis.txt")
+        # analyze_change_impact(pr_url)
+        # pr_change_analysis = f"## AI PR Review File Change Analysis\n\n**Description:**\n{CHANGE_ANALYSIS}\n"
+        # post_comment_on_pr(pr_url, pr_change_analysis, "pr_analysis.txt")
         review_all_files(pr_url)
     else:
         console.print("[red]Missing PR URL. Run the script with `--pr-url <PR_URL>`")
