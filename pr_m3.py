@@ -25,10 +25,10 @@ PR_DIFF_FILES = dict()
 def parse_git_diff(diff_text):
     """
     Parses a Git diff string and returns a dictionary mapping filenames to their respective diffs.
-    
+
     Args:
         diff_text (str): The raw Git diff string.
-    
+
     Returns:
         dict: A dictionary where keys are filenames and values are their respective diffs.
     """
@@ -45,7 +45,7 @@ def parse_git_diff(diff_text):
             # Store the previous file diff if one exists
             if current_file and diff_lines:
                 file_diffs[current_file] = "\n".join(diff_lines)
-            
+
             # Start tracking a new file
             current_file = match.group(2)  # Capture the filename after 'b/'
             diff_lines = [line]  # Start collecting lines for this file
@@ -77,12 +77,12 @@ def get_pr_diff():
 
     PR_DIFFS = response.text
     PR_DIFF_FILES = parse_git_diff(response.text)
-    return response.text 
+    return response.text
 
 def run_semgrep(files):
     """Runs Semgrep on the given files and returns findings."""
     semgrep_results = []
-    
+
     console.print("\n[cyan]Running Semgrep security scan...\n")
     try:
         cmd = f"semgrep --config=auto --json {' '.join(files)}"
@@ -94,12 +94,14 @@ def run_semgrep(files):
                 semgrep_results.append({
                     "file": finding["path"],
                     "rule": finding["check_id"],
-                    "message": finding["extra"]["message"]
+                    "message": finding["extra"]["message"],
+                    "start_line": finding["start"]["line"],
+                    "end_line": finding["end"]["line"],
                 })
-    
+
     except Exception as e:
         console.print(f"[red]Error running Semgrep: {e}")
-    
+
     return semgrep_results
 
 
@@ -107,38 +109,38 @@ def select_important_files(changed_files, max_files=5):
     """Select the most important files for analysis based on changes and file type"""
     # Prioritize files with most changes
     sorted_files = sorted(changed_files, key=lambda f: f.additions + f.deletions, reverse=True)
-    
+
     # Further prioritize code files over non-code files
     code_extensions = ['.py', '.js', '.jsx', '.ts', '.tsx', '.java', '.c', '.cpp', '.cs', '.go', '.rb']
-    
+
     code_files = [f for f in sorted_files if any(f.filename.endswith(ext) for ext in code_extensions)]
     other_files = [f for f in sorted_files if f not in code_files]
-    
+
     # Combine lists, prioritizing code files
     important_files = code_files + other_files
-    
+
     return important_files[:max_files]
-    
+
 def get_pr_context(url: str) -> dict:
     """Get PR details from GitHub"""
     gh = Github(os.getenv('GITHUB_TOKEN'))
     pattern = r"https://github\.com/([^/]+)/([^/]+)/pull/(\d+)"
     match = re.match(pattern, url)
-    
+
     if not match:
         raise ValueError("Invalid GitHub PR URL")
-        
+
     owner, repo, pr_number = match.groups()
     repo = gh.get_repo(f"{owner}/{repo}")
     pr = repo.get_pull(int(pr_number))
-    
+
     return {
         'title': pr.title,
         'description': pr.body,
         'changed_files': list(pr.get_files()),
         'commits': list(pr.get_commits()),
         'status': pr.state,
-        
+
     }
 
 def get_file_contents(changed_files, pr_url):
@@ -146,22 +148,22 @@ def get_file_contents(changed_files, pr_url):
     repo, pr_number = extract_repo_and_pr(pr_url)
     if not repo or not pr_number:
         return ""
-    
+
     _, head_repo, head_branch = get_pr_details(repo, pr_number)
-    
+
     # Select important files (limit to avoid overwhelming context)
     important_files = select_important_files(changed_files, max_files=10)
-    
+
     file_contents = []
     for file in important_files:
         url = f"https://raw.githubusercontent.com/{head_repo}/refs/heads/{head_branch}/{file.filename}"
         response = requests.get(url)
-        
+
         if response.status_code == 200:
             content = response.text
-            
+
             file_contents.append(f"File: {file.filename}\n```\n{content}\n```\n")
-    
+
             FILES_CONTENT[file.filename] = content
     return  "\n".join(file_contents)
 
@@ -177,163 +179,135 @@ def determine_pr_type(title, description):
         "refactor": ["refactor", "cleanup", "restructure"],
         "security": ["security", "vulnerability", "CVE", "exploit"]
     }
-    
+
     title_lower = title.lower()
     if description:
         desc_lower = description.lower()
     else:
         desc_lower = ""
-    
+
     for pr_type, words in keywords.items():
         if any(word in title_lower or word in desc_lower for word in words):
             return pr_type
-    
+
     return "general"
 
-def generate_custom_prompt(pr_type, pr_context, files_content):
-    """Generate a prompt tailored to the PR type."""
+def generate_custom_prompt(pr_type, pr_context, files_content, filename, file_diff):
+    """Generate a prompt tailored to the PR type and specific file."""
     base_prompt = f"""You are PR-Reviewer, a language model designed to review a Git Pull Request (PR).
-    Summarize the following PR changes concisely:
-    Title: {pr_context['title']}
-    Description: {pr_context['description']}
-    Changed File Contents:
-    {files_content}
-    File Diffs:
-    {PR_DIFFS}
-    If any of these are breaking only Then, your summary should include a note about alterations to the signatures of exported functions, global data structures and variables, and any changes that might affect the external interface or behavior of the code.
-    Important:
-    - In your summary do not mention that the file needs a through review or caution about potential issues.
+    Analyze the changes in the following file: `{filename}`.
+    PR Title: {pr_context['title']}
+    PR Description: {pr_context['description']}
+    File Content:
+    ```
+    {files_content.get(filename, 'No content available')}
+    ```
+    File Diff:
+    ```diff
+    {file_diff}
+    ```
+    Provide specific feedback on the changes in this file.
+    Focus on clarity, correctness, potential issues, and adherence to best practices.
+    Point out specific lines where improvements can be made.
+    If any of these are breaking changes (alterations to the signatures of exported functions, global data structures and variables, or changes that might affect the external interface or behavior of the code), please mention them.
     """
 
     prompts = {
-        "bug": f"{base_prompt}\nExplain the root cause of this bug and assess the effectiveness of the fix.",
-        "feature": f"{base_prompt}\nEvaluate the impact of this feature on existing functionality and suggest improvements.",
-        "refactor": f"{base_prompt}\nAnalyze whether this refactoring improves maintainability and performance.",
-        "security": f"{base_prompt}\nAssess whether this patch effectively mitigates the security issue.",
+        "bug": f"{base_prompt}\nExplain if the changes effectively fix the bug and if any new issues are introduced.",
+        "feature": f"{base_prompt}\nEvaluate how well the new feature is implemented and if it integrates well with the existing codebase. Suggest potential improvements.",
+        "refactor": f"{base_prompt}\nAssess if the refactoring improves the code's maintainability, readability, and performance. Highlight any potential regressions.",
+        "security": f"{base_prompt}\nAnalyze if the changes effectively address the security vulnerability and if any new security risks are introduced.",
         "general": f"{base_prompt}"
     }
-    
-    ending = """\nRespond in the following way:
-    Include the summary of the overall changes in three to four sentences.
-    eg:  This PR addresses a bug where the user login was failing due to an incorrect API endpoint. The fix updates the endpoint URL in the authentication service. Additionally, a new feature was added to display user profile pictures. The feature introduces a new image processing library and updates the user profile component to fetch and display the image.
-    \n
+
+    ending = """\nRespond with specific comments or suggestions related to the changes in this file. If you have a comment about a specific line, please indicate the line number(s).
+    For example:
+    - Line 25: Consider adding input validation to prevent potential errors.
+    - The logic in this function seems complex; could it be simplified?
+    - This change introduces a breaking change in the API; ensure documentation is updated.
     """
     return prompts.get(pr_type, prompts["general"]) + ending
 
-def generate_pr_summary(url):
-    """Generates a PR summary using Ollama's CodeLlama model."""
-    global PR_SUMMARY
-    console.print("\n[cyan]Generating PR summary using AI...\n")
+def generate_file_analysis(url):
+    """Generates file-by-file analysis using Ollama."""
+    global PR_DIFF_FILES, FILES_CONTENT
+    console.print("\n[cyan]Generating file-by-file analysis using AI...\n")
     pr_context = get_pr_context(url)
-    
-    files_content = get_file_contents(pr_context['changed_files'], url)
-    
-    # prompt = f"""You are PR-Reviewer, a language model designed to review a Git Pull Request (PR).
-    # Summarize the following PR changes concisely:
-    # Title: {pr_context['title']}
-    # Description: {pr_context['description']}
-    # Changed Files and Contents:
-    # {files_content}
-    # Provide a clear and concise summary of the content changes.
-    # If applicable, your summary should include a note about alterations to the signatures of exported functions, global data structures and variables, and any changes that might affect the external interface or behavior of the code.
-    # """
-    # prompt = handle_token_limit(prompt)
-
     pr_type = determine_pr_type(pr_context["title"], pr_context["description"])
-    prompt = generate_custom_prompt(pr_type, pr_context, files_content)
-    prompt = handle_token_limit(prompt)
-    
-    
-    payload = {"model": MODEL_NAME, "prompt": prompt, "stream": False}
-    response = requests.post(OLLAMA_API_URL, json=payload)
-    
-    if response.status_code == 200:
-        result = response.json()
-        PR_SUMMARY = result.get("response", "[Error generating summary]")
-        console.print(f"\n[green]PR Summary:\n{PR_SUMMARY}\n")
-    else:
-        console.print(f"[red]Error: {response.status_code} - {response.text}")
-
-def analyze_change_impact(url):
-    """Analyzes the impact of PR changes in depth and creates inline comments."""
-    global SEMGREP_FINDINGS, CHANGE_ANALYSIS
-    console.print("\n[cyan]Analyzing PR Change Impact...\n")
-    
-    # Get PR context and GitHub objects
-    pr_context = get_pr_context(url)
-    gh = Github(os.getenv('GITHUB_TOKEN'))
-    owner, repo, pr_number = re.search(r"github\.com/([^/]+)/([^/]+)/pull/(\d+)", url).groups()
-    repo = gh.get_repo(f"{owner}/{repo}")
+    files_content = FILES_CONTENT  # Assuming FILES_CONTENT is already populated
+    github_token = os.getenv('GITHUB_TOKEN')
+    owner, repo_name, pr_number = re.search(r"github\.com/([^/]+)/([^/]+)/pull/(\d+)", url).groups()
+    gh = Github(github_token)
+    repo = gh.get_repo(f"{owner}/{repo_name}")
     pr = repo.get_pull(int(pr_number))
-    
-    idx = 0
-    for file in pr_context['changed_files']:
-        idx += 1
-        findings = [f for f in SEMGREP_FINDINGS if f['file'] == file.filename]
-        changes = f"+{file.additions}/-{file.deletions}"
-        if file.filename in FILES_CONTENT:
-            changes = FILES_CONTENT[file.filename]
-        curr_change = PR_DIFF_FILES[file.filename]
-        
-        # Parse the diff to get line numbers and changes
-        diff_lines = curr_change.split('\n')
-        current_line = 0
-        for line in diff_lines:
-            if line.startswith('@@'):
-                # Extract line numbers from the diff header
-                line_numbers = re.search(r'\+(\d+),(\d+)', line)
-                if line_numbers:
-                    current_line = int(line_numbers.group(1))
-            elif line.startswith('+'):
-                # This is an added line, create an inline comment
-                prompt = f"""You are PR-Reviewer, a language model designed to review a Git Pull Request (PR).
-                Analyze this specific line of code:
-                {line[1:]}
-                
-                Provide a concise review comment focusing on:
-                1. Code quality and best practices
-                2. Potential issues or improvements
-                3. Security considerations
-                
-                Keep the comment brief and actionable.
-                """
-                
-                payload = {"model": MODEL_NAME, "prompt": prompt, "stream": False}
-                response = requests.post(OLLAMA_API_URL, json=payload)
-                
-                if response.status_code == 200:
-                    result = response.json()
-                    comment = result.get("response", "")
-                    if comment.strip():
-                        create_inline_comment(pr, file.filename, current_line, comment)
-                current_line += 1
-            elif not line.startswith('-'):
-                # This is a context line, increment the line number
-                current_line += 1
-        
-        # Add overall file analysis as a general comment
-        file_analysis = f"""File: {file.filename}\nChanged File {changes}\nChanges between original and new content: {curr_change}\n\nSemgrep Findings: {findings}\n"""
-        prompt = f"""You are PR-Reviewer, a language model designed to review a Git Pull Request (PR).
-        Provide a high-level analysis of the changes in this file:
-        {file_analysis}
-        
-        Focus on:
-        1. Overall impact of the changes
-        2. Integration with existing code
-        3. Potential risks or improvements
-        
-        Keep the analysis concise and actionable.
-        """
-        
+
+    for filename, diff in PR_DIFF_FILES.items():
+        file_content = FILES_CONTENT.get(filename, '')
+        prompt = generate_custom_prompt(pr_type, pr_context, files_content, filename, diff)
+        prompt = handle_token_limit(prompt)
+
         payload = {"model": MODEL_NAME, "prompt": prompt, "stream": False}
         response = requests.post(OLLAMA_API_URL, json=payload)
-        
+
         if response.status_code == 200:
             result = response.json()
-            CHANGE_ANALYSIS += f"\n{idx}. **Impact Analysis for `{file.filename}`**:\n\t{result.get('response', '[Error]')}\n"
-            console.print(f"\n[green]Impact Analysis for {file.filename}:\n{result.get('response', '[Error]')}\n")
+            analysis = result.get("response", "[Error generating analysis for this file]")
+            console.print(f"\n[green]Analysis for `{filename}`:\n{analysis}\n")
+            post_comments_for_file(repo, pr, filename, diff, analysis)
         else:
-            console.print(f"[red]Error analyzing {file.filename}: {response.status_code} - {response.text}")
+            console.print(f"[red]Error analyzing `{filename}`: {response.status_code} - {response.text}")
+
+def post_comments_for_file(repo, pull, filename, diff, analysis):
+    """Posts comments on specific lines of the PR based on the analysis."""
+    lines = diff.splitlines()
+    comment_lines = {}
+    for line in analysis.splitlines():
+        match = re.search(r"Line (\d+): (.*)", line)
+        if match:
+            line_number = int(match.group(1))
+            comment_text = match.group(2).strip()
+
+            # Need to map the line number in the new file to the diff context
+            new_file_line = 0
+            original_line = 0
+            in_hunk = False
+            hunk_start_line = None
+
+            for diff_line in lines:
+                if diff_line.startswith("@@"):
+                    in_hunk = True
+                    hunk_info = diff_line.split("@@")[1].strip()
+                    original_range, new_range = hunk_info.split(" ")
+                    original_start = int(original_range.split(",")[0].replace("-", ""))
+                    new_start = int(new_range.split(",")[0].replace("+", ""))
+                    hunk_start_original = original_start
+                    hunk_start_new = new_start
+                    original_line = original_start -1 # Adjust for context lines
+                    new_file_line = new_start - 1 # Adjust for context lines
+                    continue
+                elif in_hunk:
+                    if diff_line.startswith("+"):
+                        new_file_line += 1
+                        if new_file_line == line_number:
+                            if filename not in comment_lines:
+                                comment_lines[filename] = []
+                            comment_lines[filename].append((line_number, comment_text))
+                            break
+                    elif not diff_line.startswith("-"):
+                        original_line += 1
+                        new_file_line += 1
+            elif re.search(r"The logic in this function seems complex", line):
+                # Generic comment on the file
+                pull.create_issue_comment(f"**AI Review for `{filename}`:**\n{line}")
+
+
+    for file, comments in comment_lines.items():
+        for line_num, comment in comments:
+            try:
+                pull.create_comment(body=f"**AI Suggestion:** {comment}", path=file, position=line_num)
+                console.print(f"[blue]Comment posted on `{file}` at line {line_num}: {comment}")
+            except Exception as e:
+                console.print(f"[red]Error posting comment on `{file}` at line {line_num}: {e}")
 
 def extract_repo_and_pr(url):
     """Extracts the repo owner/name and PR number from a GitHub PR URL."""
@@ -354,15 +328,21 @@ def get_pr_details(repo, pr_number):
         exit(1)
 
     data = json.loads(result.stdout)
-    files = [file["path"] for file in data.get("files", [])]
+    files_data = data.get("files", [])
+    files = [file["path"] for file in files_data]
     head_branch = data.get("headRefName")
     is_forked = data.get("isCrossRepository")
     head_repo = data.get("headRepository", {}).get("name")
     owner = data.get("headRepositoryOwner", {}).get("login")
 
+    changed_files_objects = []
+    for file_info in files_data:
+        changed_files_objects.append(type('ChangedFile', (), file_info)())
+
     if is_forked:
-        return files, owner+"/"+head_repo, head_branch
-    return files, repo, head_branch
+        return changed_files_objects, owner+"/"+head_repo, head_branch
+    return changed_files_objects, repo, head_branch
+
 
 def run_lint(pr_url):
     """Runs linters and Semgrep for all supported languages."""
