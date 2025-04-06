@@ -429,7 +429,7 @@ def post_comment_on_pr(pr_url, comment, file_name):
         f.write(comment)
     console.print(f"[green]Posted analysis comment on PR #{pr_number}")
 
-def review_file_content(file_name, file_content, diff_content):
+def review_file_content(pr, file_name, file_content, diff_content):
     """
     Review a specific file's content and provide line-by-line comments.
     
@@ -561,7 +561,7 @@ def post_line_comments(pr_url, file_reviews):
     
     # Get the latest commit in the PR
     latest_commit = list(pr.get_commits())[-1]
-    
+    print("Latest Commit:", latest_commit, pr.get_commits())
     comment_count = 0
     for file_name, comments in file_reviews.items():
         for comment in comments:
@@ -586,12 +586,13 @@ def review_all_files(pr_url):
     console.print("\n[cyan]Starting detailed file review...\n")
     
     file_reviews = {}
+    pr = Github(os.getenv('GITHUB_TOKEN')).get_repo("/".join(extract_repo_and_pr(pr_url)[0].split("/"))).get_pull(int(extract_repo_and_pr(pr_url)[1]))
     
     # Review each file that has content available
     for file_name, file_content in FILES_CONTENT.items():
         if file_name in PR_DIFF_FILES:
             diff_content = PR_DIFF_FILES[file_name]
-            review_comments = review_file_content(file_name, file_content, diff_content)
+            review_comments = review_file_content(pr, file_name, file_content, diff_content)
             
             if review_comments:
                 file_reviews[file_name] = review_comments
@@ -615,7 +616,6 @@ def review_all_files(pr_url):
                 summary += f"- Line {comment['line']}: {comment['comment']}\n"
             summary += "\n"
         
-        pr = Github(os.getenv('GITHUB_TOKEN')).get_repo("/".join(extract_repo_and_pr(pr_url)[0].split("/"))).get_pull(int(extract_repo_and_pr(pr_url)[1]))
         pr.create_issue_comment(summary)
     else:
         console.print("[yellow]No issues found in the detailed file review.")
