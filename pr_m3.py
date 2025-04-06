@@ -571,12 +571,18 @@ def post_line_comments(pr_url, file_reviews):
                     body=comment["comment"],
                     commit_id=latest_commit.sha,
                     path=file_name,
-                    line=comment["line"]
+                    line=1
                 )
                 comment_count += 1
                 console.print(f"[green]Posted comment on {file_name}:{comment['line']}")
             except Exception as e:
                 console.print(f"[red]Error posting comment to {file_name}:{comment['line']}: {e}")
+
+            pr.create_review_comment(
+                    body=comment["comment"],
+                    path=file_name,
+                    line=1
+                )
     
     console.print(f"[green]Posted {comment_count} line-specific comments on the PR")
 
@@ -629,15 +635,19 @@ if __name__ == "__main__":
         pr_url = sys.argv[2]
         console.print(f"[cyan]Running PR analysis for {pr_url}...\n")
 
-        get_pr_diff()
+        # get_pr_diff()
         
-        generate_pr_summary(pr_url)
+        # generate_pr_summary(pr_url)
         # pr_comment = f"## AI PR Review Summary\n\n**Summary:**\n{PR_SUMMARY}\n"
         # post_comment_on_pr(pr_url, pr_comment, "pr_summary.txt")
         
         # analyze_change_impact(pr_url)
         # pr_change_analysis = f"## AI PR Review File Change Analysis\n\n**Description:**\n{CHANGE_ANALYSIS}\n"
         # post_comment_on_pr(pr_url, pr_change_analysis, "pr_analysis.txt")
-        review_all_files(pr_url)
+        # review_all_files(pr_url)
+
+        file_reviews = {}
+        file_reviews["custom_router/router.py"] = {"line": "1", "comment": "test"}
+        post_line_comments(pr_url, file_reviews)
     else:
         console.print("[red]Missing PR URL. Run the script with `--pr-url <PR_URL>`")
