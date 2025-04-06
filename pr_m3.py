@@ -647,7 +647,7 @@ if __name__ == "__main__":
         # review_all_files(pr_url)
 
         file_reviews = {}
-        file_reviews["custom_router/router.py"] = {"line": "1", "comment": "test"}
+        file_reviews["custom_router/router.py"] = {"line": 1, "comment": "test"}
         post_line_comments(pr_url, file_reviews)
     else:
         console.print("[red]Missing PR URL. Run the script with `--pr-url <PR_URL>`")
