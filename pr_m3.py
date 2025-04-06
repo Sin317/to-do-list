@@ -568,18 +568,18 @@ def post_line_comments(pr_url, file_reviews):
         for comment in comments:
             try:
                 pr.create_review_comment(
-                    body=comment["comment"],
+                    body="hello",
                     commit_id=latest_commit.sha,
                     path=file_name,
                     line=1
                 )
                 comment_count += 1
-                console.print(f"[green]Posted comment on {file_name}:{comment['line']}")
+                console.print(f"[green]Posted comment on {file_name}:")
             except Exception as e:
-                console.print(f"[red]Error posting comment to {file_name}:{comment['line']}: {e}")
+                console.print(f"[red]Error posting comment to {file_name}:: {e}")
 
             pr.create_review_comment(
-                    body=comment["comment"],
+                    body="hello",
                     path=file_name,
                     line=1
                 )
