@@ -296,9 +296,9 @@ def post_comments_for_file(repo, pull, filename, diff, analysis):
                     elif not diff_line.startswith("-"):
                         original_line += 1
                         new_file_line += 1
-            elif re.search(r"The logic in this function seems complex", line):
-                # Generic comment on the file
-                pull.create_issue_comment(f"**AI Review for `{filename}`:**\n{line}")
+            # elif re.search(r"The logic in this function seems complex", line):
+            #     # Generic comment on the file
+            #     pull.create_issue_comment(f"**AI Review for `{filename}`:**\n{line}")
 
 
     for file, comments in comment_lines.items():
