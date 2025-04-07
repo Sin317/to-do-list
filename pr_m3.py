@@ -566,13 +566,12 @@ def post_line_comments(pr_url, file_reviews):
 
     for file_name, comments in file_reviews.items():
         for comment in comments:
-            print("---", comment)
             try:
                 cm = pr.create_review_comment(
                     body=comment["comment"],
                     commit=latest_commit,
                     path=file_name,
-                    line=6,
+                    line=int(comment["line"]),
                     as_suggestion=False
                 )
                 comment_count += 1
@@ -632,8 +631,8 @@ if __name__ == "__main__":
         get_pr_diff()
         
         generate_pr_summary(pr_url)
-        # pr_comment = f"## AI PR Review Summary\n\n**Summary:**\n{PR_SUMMARY}\n"
-        # post_comment_on_pr(pr_url, pr_comment, "pr_summary.txt")
+        pr_comment = f"## AI PR Review Summary\n\n**Summary:**\n{PR_SUMMARY}\n"
+        post_comment_on_pr(pr_url, pr_comment, "pr_summary.txt")
         
         # analyze_change_impact(pr_url)
         # pr_change_analysis = f"## AI PR Review File Change Analysis\n\n**Description:**\n{CHANGE_ANALYSIS}\n"
