@@ -564,17 +564,31 @@ def post_line_comments(pr_url, file_reviews):
     latest_commit = list(pr.get_commits())[-1]
     print("Latest Commit:", latest_commit, pr.get_commits())
     comment_count = 0
+
+    try:
+                cm = pr.create_review_comment(
+                    body="hello",
+                    commit=latest_commit,
+                    path=file_name,
+                    line=6,
+                    as_suggestion=True
+                )
+                comment_count += 1
+                console.print(f"[green]Posted comment on {file_name}: {cm}")
+    except Exception as e:
+                console.print(f"[red]Error posting comment to {file_name}:: {e}")
     for file_name, comments in file_reviews.items():
         for comment in comments:
             try:
-                pr.create_review_comment(
+                cm = pr.create_review_comment(
                     body="hello",
-                    commit=latest_commit.sha,
+                    commit=latest_commit,
                     path=file_name,
-                    line=1
+                    line=6,
+                    as_suggestion=True
                 )
                 comment_count += 1
-                console.print(f"[green]Posted comment on {file_name}:")
+                console.print(f"[green]Posted comment on {file_name}: {cm}")
             except Exception as e:
                 console.print(f"[red]Error posting comment to {file_name}:: {e}")
 
