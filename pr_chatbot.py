@@ -767,7 +767,7 @@ def create_chatbot_command(pr_url, command, comment_id=None):
         comment_id (int): ID of the comment containing the command
     """
     # Extract owner, repo, and PR number
-    owner, repo, pr_number = re.search(r"github\.com/([^/]+)/([^/]+)/pull/(\d+)", pr_url).groups()
+    owner, repo_name, pr_number = re.search(r"github\.com/([^/]+)/([^/]+)/pull/(\d+)", pr_url).groups()
     
     # Parse the command
     # Format: /ai <query>
