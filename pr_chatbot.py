@@ -879,7 +879,7 @@ For example:
 
 Let's discuss this code together!
 """
-        post_comment_on_pr(pr_url, chatbot_info, "chatbot_info.txt")
+        
         
         if args.chat:
             # Start interactive chat session
@@ -893,6 +893,7 @@ Let's discuss this code together!
             console.print(f"[cyan]Processing comment {comment_id}: {comment_body}[/cyan]")
             create_chatbot_command(pr_url, comment_body, comment_id)
         else:
+            post_comment_on_pr(pr_url, chatbot_info, "chatbot_info.txt")
             # Run standard PR analysis
             console.print(f"[cyan]Running PR analysis for {pr_url}...\n")
             get_pr_diff()
