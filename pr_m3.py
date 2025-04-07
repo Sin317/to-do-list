@@ -497,7 +497,8 @@ def review_file_content(pr, file_name, file_content, diff_content):
         result = response.json().get("response", "[]")
         try:
             # Extract the JSON part from the response
-            json_str = result
+            # remove escape characters to avoid parse errors
+            json_str = re.sub(r'\\([^"\\/bfnrtu])', r'\1', result)
             if not json_str.startswith('['):
                 # If the model included any preamble text, try to find the JSON list
                 json_start = result.find('[')
