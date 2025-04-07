@@ -570,13 +570,12 @@ def post_line_comments(pr_url, file_reviews):
                     body="hello",
                     commit=latest_commit,
                     path="custom_router/router.py",
-                    line=6,
-                    as_suggestion=True
+                    line=6
                 )
                 comment_count += 1
-                console.print(f"[green]Posted comment on {file_name}: {cm}")
+                console.print(f"[green]Posted comment on: {cm}")
     except Exception as e:
-                console.print(f"[red]Error posting comment to {file_name}:: {e}")
+                console.print(f"[red]Error posting comment to:: {e}")
     for file_name, comments in file_reviews.items():
         for comment in comments:
             try:
