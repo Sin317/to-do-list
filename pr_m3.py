@@ -569,7 +569,7 @@ def post_line_comments(pr_url, file_reviews):
                 cm = pr.create_review_comment(
                     body="hello",
                     commit=latest_commit,
-                    path=file_name,
+                    path="custom_router/router.py",
                     line=6,
                     as_suggestion=True
                 )
