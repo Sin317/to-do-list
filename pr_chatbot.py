@@ -871,7 +871,22 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     if args.pr_url:
+        
         pr_url = args.pr_url
+        # Add info about using the chatbot
+        chatbot_info = """
+## Ask me about this PR! 
+
+You can ask questions about this PR by commenting with `/ai` followed by your question.
+
+For example:
+- `/ai What are the main changes in this PR?`
+- `/ai How does this code work?`
+- `/ai Are there any security concerns in file.py?`
+
+Let's discuss this code together!
+"""
+        post_comment_on_pr(pr_url, chatbot_info, "chatbot_info.txt")
         
         if args.chat:
             # Start interactive chat session
@@ -893,20 +908,7 @@ if __name__ == "__main__":
             pr_comment = f"## AI PR Review Summary\n\n**Summary:**\n{PR_SUMMARY}\n"
             post_comment_on_pr(pr_url, pr_comment, "pr_summary.txt")
             
-            # Add info about using the chatbot
-            chatbot_info = """
-## Ask me about this PR! 
-
-You can ask questions about this PR by commenting with `/ai` followed by your question.
-
-For example:
-- `/ai What are the main changes in this PR?`
-- `/ai How does this code work?`
-- `/ai Are there any security concerns in file.py?`
-
-Let's discuss this code together!
-"""
-            post_comment_on_pr(pr_url, chatbot_info, "chatbot_info.txt")
+            
             
             review_all_files(pr_url)
     else:
