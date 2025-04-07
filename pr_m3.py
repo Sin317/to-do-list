@@ -471,7 +471,6 @@ def review_file_content(pr, file_name, file_content, diff_content):
     3. Performance concerns
     4. Style and readability issues
     5. Potential bugs or edge cases
-    6. Missing Test Coverage
     
     For each issue, provide:
     1. The exact line number
@@ -507,6 +506,7 @@ def review_file_content(pr, file_name, file_content, diff_content):
                     json_str = result[json_start:json_end]
             
             review_comments = json.loads(json_str)
+            console.print(review_comments)
             console.print(f"[green]Found {len(review_comments)} issues in {file_name}")
         except json.JSONDecodeError as e:
             console.print(f"[red]Error parsing review comments: {e}")
@@ -562,29 +562,18 @@ def post_line_comments(pr_url, file_reviews):
     
     # Get the latest commit in the PR
     latest_commit = list(pr.get_commits())[-1]
-    print("Latest Commit:", latest_commit, pr.get_commits())
     comment_count = 0
 
-    try:
-                cm = pr.create_review_comment(
-                    body="hello",
-                    commit=latest_commit,
-                    path="custom_router/router.py",
-                    line=6
-                )
-                comment_count += 1
-                console.print(f"[green]Posted comment on: {cm}")
-    except Exception as e:
-                console.print(f"[red]Error posting comment to:: {e}")
     for file_name, comments in file_reviews.items():
         for comment in comments:
+            print("---", comment)
             try:
                 cm = pr.create_review_comment(
-                    body="hello",
+                    body=comment["comment"],
                     commit=latest_commit,
                     path=file_name,
                     line=6,
-                    as_suggestion=True
+                    as_suggestion=False
                 )
                 comment_count += 1
                 console.print(f"[green]Posted comment on {file_name}: {cm}")
@@ -613,28 +602,26 @@ def review_all_files(pr_url):
             if review_comments:
                 file_reviews[file_name] = review_comments
     
-    if not file_reviews:
-        file_reviews[file_name] = {"line": "1", "comment": "test"}
     # Post comments on the PR
     if file_reviews:
         post_line_comments(pr_url, file_reviews)
         
         # Also save the reviews to a file
-        with open("line_reviews.json", "w") as f:
-            json.dump(file_reviews, f, indent=2)
+        # with open("line_reviews.json", "w") as f:
+        #     json.dump(file_reviews, f, indent=2)
         
-        # Generate a summary comment for the PR
-        total_comments = sum(len(comments) for comments in file_reviews.values())
-        summary = f"## AI PR Line-by-Line Review\n\n"
-        summary += f"Found {total_comments} issues across {len(file_reviews)} files.\n\n"
+        # # Generate a summary comment for the PR
+        # total_comments = sum(len(comments) for comments in file_reviews.values())
+        # summary = f"## AI PR Line-by-Line Review\n\n"
+        # summary += f"Found {total_comments} issues across {len(file_reviews)} files.\n\n"
         
-        for file_name, comments in file_reviews.items():
-            summary += f"### {file_name}\n"
-            for comment in comments:
-                summary += f"- Line {comment['line']}: {comment['comment']}\n"
-            summary += "\n"
+        # for file_name, comments in file_reviews.items():
+        #     summary += f"### {file_name}\n"
+        #     for comment in comments:
+        #         summary += f"- Line {comment['line']}: {comment['comment']}\n"
+        #     summary += "\n"
         
-        pr.create_issue_comment(summary)
+        # pr.create_issue_comment(summary)
     else:
         console.print("[yellow]No issues found in the detailed file review.")
 
@@ -642,20 +629,15 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "--pr-url":
         pr_url = sys.argv[2]
         console.print(f"[cyan]Running PR analysis for {pr_url}...\n")
-
-        # get_pr_diff()
+        get_pr_diff()
         
-        # generate_pr_summary(pr_url)
+        generate_pr_summary(pr_url)
         # pr_comment = f"## AI PR Review Summary\n\n**Summary:**\n{PR_SUMMARY}\n"
         # post_comment_on_pr(pr_url, pr_comment, "pr_summary.txt")
         
         # analyze_change_impact(pr_url)
         # pr_change_analysis = f"## AI PR Review File Change Analysis\n\n**Description:**\n{CHANGE_ANALYSIS}\n"
         # post_comment_on_pr(pr_url, pr_change_analysis, "pr_analysis.txt")
-        # review_all_files(pr_url)
-
-        file_reviews = {}
-        file_reviews["custom_router/router.py"] = {"line": 1, "comment": "test"}
-        post_line_comments(pr_url, file_reviews)
+        review_all_files(pr_url)
     else:
         console.print("[red]Missing PR URL. Run the script with `--pr-url <PR_URL>`")
