@@ -14,7 +14,7 @@ jobs:
   pr_review:
     runs-on: ubuntu-latest
     env:
-      AI_MODEL: mistral
+      AI_MODEL: codellama
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -41,4 +41,4 @@ jobs:
           REPO_NAME: ${{ github.repository }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python pr_m3.py --pr-url "${{ github.event.pull_request.html_url }}"
+          python pr_chatbot.py --pr-url "${{ github.event.pull_request.html_url }}"

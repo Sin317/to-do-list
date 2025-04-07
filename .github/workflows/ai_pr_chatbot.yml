@@ -1,0 +1,56 @@
+name: PR Chatbot
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  respond_to_comment:
+    # Only run if the comment is on a PR and starts with /ai
+    if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/ai') }}
+    runs-on: ubuntu-latest
+    env:
+      AI_MODEL: qwen2.5-coder:3b
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      
+      - name: Set Up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install Dependencies
+        run: |
+          pip install -r requirements.txt
+      
+      - name: Install ollama
+        run: curl -fsSL https://ollama.com/install.sh | sh
+      
+      - name: Run ollama
+        run: |
+          ollama serve &
+          ollama pull $AI_MODEL
+      
+      - name: Get PR URL
+        id: get_pr_url
+        run: |
+          PR_NUMBER=${{ github.event.issue.number }}
+          echo "PR_URL=https://github.com/${{ github.repository }}/pull/$PR_NUMBER" >> $GITHUB_ENV
+      
+      - name: Process Comment
+        env:
+          PR_NUMBER: ${{ github.event.issue.number }}
+          REPO_NAME: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+        run: |
+          echo "Processing comment: $COMMENT_BODY"
+          python pr_chatbot.py --pr-url "$PR_URL" --process-comment "$COMMENT_ID" "$COMMENT_BODY" 
