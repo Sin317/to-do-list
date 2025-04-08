@@ -7,9 +7,41 @@
 <body>
     <h1>To-Do List</h1>
     <input type="text" id="taskInput" placeholder="Add a new task">
+    <input type="file" id="imageInput" accept="image/*">
     <button id="addButton">Add</button>
-    <ul id="taskList">
-    </ul>
-    <script src="script.js"></script>
+    <ul id="taskList"></ul>
+    
+    <script>
+        document.getElementById("addButton").addEventListener("click", function() {
+            let taskText = document.getElementById("taskInput").value;
+            let imageFile = document.getElementById("imageInput").files[0];
+            
+            if (taskText === "" && !imageFile) return;
+            
+            let li = document.createElement("li");
+            let taskSpan = document.createElement("span");
+            taskSpan.textContent = taskText;
+            
+            let removeButton = document.createElement("button");
+            removeButton.textContent = "Remove";
+            removeButton.addEventListener("click", function() {
+                li.remove();
+            });
+            
+            li.appendChild(taskSpan);
+            if (imageFile) {
+                let img = document.createElement("img");
+                img.src = URL.createObjectURL(imageFile);
+                img.style.maxWidth = "100px";
+                img.style.display = "block";
+                li.appendChild(img);
+            }
+            li.appendChild(removeButton);
+            
+            document.getElementById("taskList").appendChild(li);
+            document.getElementById("taskInput").value = "";
+            document.getElementById("imageInput").value = "";
+        });
+    </script>
 </body>
 </html>
