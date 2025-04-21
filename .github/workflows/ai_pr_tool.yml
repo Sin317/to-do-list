@@ -12,7 +12,7 @@ jobs:
   pr_review:
     runs-on: ubuntu-latest
     env:
-      AI_MODEL: codellama
+      AI_MODEL: llama3.2
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
